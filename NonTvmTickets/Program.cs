@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,6 +9,11 @@ namespace NonTvmTickets
 {
     internal class Program
     {
+        /// <summary>
+        /// Print all ticket types in the RCS_R_T file that do not have a channel element of for for any licensee. This
+        /// means that this ticket type can never be sold on a TVM.
+        /// </summary>
+        /// <param name="args">The rcs_r_t filename</param>
         private static void Main(string[] args)
         {
             try
@@ -20,11 +24,17 @@ namespace NonTvmTickets
                 }
                 var filename = args[0];
                 var xdoc = XDocument.Load(filename);
-                var nonTvmTickets = xdoc.Descendants("FTOT")
-                    .Select(x => new { Ftot = x.Attribute("t").Value, Channels = x.Descendants("Channel").Select(y => y.Attribute("ch").Value).ToList() });
-                foreach (var result in nonTvmTickets)
+                var ns = xdoc.Root.GetDefaultNamespace();
+                var nonTvmTickets = xdoc.Descendants(ns + "FTOT")
+                    .Select(x => new
+                    {
+                        Ftot = x.Attribute("t").Value,
+                        Channels = x.Descendants(ns + "Channel").Select(y => y.Attribute("ch").Value).Distinct().OrderBy(z=>z).ToList()
+                    });
+                foreach (var result in nonTvmTickets.Where(x=>!x.Channels.Contains("00004")))
                 {
-                    Console.WriteLine($"ftot: {result.Ftot} channels: {string.Join(",", result.Channels)}");
+                    var name = TicketRefData.GetTicketTypeName(result.Ftot) ?? "ERROR: CANNOT FIND TICKET TYPE NAME";
+                    Console.WriteLine($"ftot: {result.Ftot} {name}");
                 }
             }
             catch (Exception ex)
